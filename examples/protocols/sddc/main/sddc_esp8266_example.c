@@ -279,7 +279,7 @@ static void sc_callback(smartconfig_status_t status, void *pdata)
     }
 }
 
-void smartconfig_example_task(void * parm)
+static void smartconfig_task(void * parm)
 {
     EventBits_t uxBits;
     ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
@@ -298,7 +298,7 @@ void smartconfig_example_task(void * parm)
     }
 }
 
-static void flash_key_gpio_task_example(void *arg)
+static void flash_key_task(void *arg)
 {
     int i = 0;
     while (1) {
@@ -313,7 +313,7 @@ static void flash_key_gpio_task_example(void *arg)
             sddc_printf("start smart config....\n");
             if (!start_wifi_flag) {
                 initialise_wifi();
-                xTaskCreate(smartconfig_example_task, "smartconfig_example_task", 2048, NULL, 10, NULL);
+                xTaskCreate(smartconfig_task, "smartconfig_task", 2048, NULL, 10, NULL);
                 start_wifi_flag = 1;
             }
         }
@@ -404,7 +404,7 @@ void app_main()
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    xTaskCreate(flash_key_gpio_task_example, "flash_key_gpio_task_example", 4096, NULL, 5, NULL);
+    xTaskCreate(flash_key_task, "flash_key_task", 4096, NULL, 5, NULL);
     ESP_ERROR_CHECK(example_connect());
 
     xTaskCreate(sddc_example_task, "sddc_example_task", 4096, NULL, 5, NULL);
