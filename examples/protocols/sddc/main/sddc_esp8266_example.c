@@ -37,7 +37,7 @@ static EventGroupHandle_t wifi_event_group;
 static const int CONNECTED_BIT = BIT0;
 static const int ESPTOUCH_DONE_BIT = BIT1;
 static const char *TAG = "sc";
-static int start_wifi_flag = 0;
+static int smartconfig_flag = 0;
 
 /*
  * handle MESSAGE
@@ -163,7 +163,6 @@ static char *esp8266_report_data_create(void)
 
     str = cJSON_Print(root);
     sddc_printf("REPORT DATA: %s\n", str);
-    start_wifi_flag = 1;
     cJSON_Delete(root);
 
     return str;
@@ -287,13 +286,13 @@ static void smartconfig_task(void * parm)
     while (1) {
         uxBits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT, true, false, portMAX_DELAY);
         if(uxBits & CONNECTED_BIT) {
-            ESP_LOGI(TAG, "WiFi Connected to AP");
+            ESP_LOGI(TAG, "Wi-Fi Connected to AP");
         }
         if(uxBits & ESPTOUCH_DONE_BIT) {
             ESP_LOGI(TAG, "SmartConfig over");
             esp_smartconfig_stop();
+            smartconfig_flag = 0;
             vTaskDelete(NULL);
-            start_wifi_flag = 0;
         }
     }
 }
@@ -301,6 +300,8 @@ static void smartconfig_task(void * parm)
 static void flash_key_task(void *arg)
 {
     int i = 0;
+
+    smartconfig_flag = 0;
     while (1) {
         vTaskDelay(1000 / portTICK_RATE_MS);
         if (!gpio_get_level(0)) {
@@ -311,10 +312,10 @@ static void flash_key_task(void *arg)
         if (i > 3) {
             i = 0;
             sddc_printf("Start SmartConfig....\n");
-            if (!start_wifi_flag) {
+            if (!smartconfig_flag) {
                 initialise_wifi();
                 xTaskCreate(smartconfig_task, "smartconfig_task", 2048, NULL, 10, NULL);
-                start_wifi_flag = 1;
+                smartconfig_flag = 1;
             }
         }
     }
