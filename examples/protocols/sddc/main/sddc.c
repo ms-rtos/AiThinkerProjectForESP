@@ -95,6 +95,7 @@ typedef struct {
     sddc_list_head_t    mqueue;
     uint16_t            mqueue_len;
     uint16_t            alive;
+    uint16_t            last_seqno;
 } sddc_edgeros_t;
 
 /* Message */
@@ -625,6 +626,7 @@ static int __sddc_after_invite_respond(sddc_t *sddc, sddc_edgeros_t *edgeros, co
             edgeros->addr       = *cli_addr;
             edgeros->alive      = SDDC_CFG_EDGEROS_ALIVE;
             edgeros->mqueue_len = 0;
+            edgeros->last_seqno = -1;
             SDDC_LIST_HEAD_INIT(&edgeros->mqueue);
             sddc_list_add(&edgeros->node, &sddc->edgeros_list);
 
@@ -861,38 +863,59 @@ static void __sddc_read_handle(sddc_t *sddc)
                     SDDC_LOG_DBG("Receive message request from: %s.\n", ip_str);
 
                     if ((len - sizeof(sddc_header_t)) >= header->length) {
-                        if (sddc->on_message != NULL) {
-#if SDDC_CFG_SECURITY_EN > 0
-                            if (header->security & SDDC_SEC_FLAG_CRYPTO) {
-                                unpack_ret = __sddc_decrypt(sddc, SDDC_PACKET_PAYLOAD(sddc->recv_buf), header->length,
-                                                            sddc->decypt_buf, &payload_len);
-                                payload    = sddc->decypt_buf;
-                            } else
-#endif
-                            {
-                                payload     = SDDC_PACKET_PAYLOAD(sddc->recv_buf);
-                                payload_len = header->length;
-                                unpack_ret  = 0;
-                            }
-
-                            if ((unpack_ret == 0) && sddc->on_message(sddc, edgeros->uid, payload, payload_len)) {
-                                if (header->flags_type & SDDC_FLAG_REQ) {
-                                    /*
-                                     * Build MESSAGE ACK
-                                     */
-                                    len = __sddc_build_packet(sddc, sddc->send_buf,
-                                                              SDDC_TYPE_MESSAGE,
-                                                              SDDC_FLAG_ACK,
-                                                              SDDC_SEC_FLAG_NONE,
-                                                              header->seqno,
-                                                              NULL, 0);
-
-                                    /*
-                                     * Send MESSAGE ACK to EdgerOS
-                                     */
-                                    sendto(sddc->fd, sddc->send_buf, len, 0,
-                                           (const struct sockaddr *)&cli_addr, sizeof(cli_addr));
+                        if (edgeros->last_seqno != header->seqno) {
+                            edgeros->last_seqno = header->seqno;
+                            if (sddc->on_message != NULL) {
+    #if SDDC_CFG_SECURITY_EN > 0
+                                if (header->security & SDDC_SEC_FLAG_CRYPTO) {
+                                    unpack_ret = __sddc_decrypt(sddc, SDDC_PACKET_PAYLOAD(sddc->recv_buf), header->length,
+                                                                sddc->decypt_buf, &payload_len);
+                                    payload    = sddc->decypt_buf;
+                                } else
+    #endif
+                                {
+                                    payload     = SDDC_PACKET_PAYLOAD(sddc->recv_buf);
+                                    payload_len = header->length;
+                                    unpack_ret  = 0;
                                 }
+
+                                if ((unpack_ret == 0) && sddc->on_message(sddc, edgeros->uid, payload, payload_len)) {
+                                    if (header->flags_type & SDDC_FLAG_REQ) {
+                                        /*
+                                         * Build MESSAGE ACK
+                                         */
+                                        len = __sddc_build_packet(sddc, sddc->send_buf,
+                                                                  SDDC_TYPE_MESSAGE,
+                                                                  SDDC_FLAG_ACK,
+                                                                  SDDC_SEC_FLAG_NONE,
+                                                                  header->seqno,
+                                                                  NULL, 0);
+
+                                        /*
+                                         * Send MESSAGE ACK to EdgerOS
+                                         */
+                                        sendto(sddc->fd, sddc->send_buf, len, 0,
+                                               (const struct sockaddr *)&cli_addr, sizeof(cli_addr));
+                                    }
+                                }
+                            }
+                        } else {
+                            if (header->flags_type & SDDC_FLAG_REQ) {
+                                /*
+                                 * Build MESSAGE ACK
+                                 */
+                                len = __sddc_build_packet(sddc, sddc->send_buf,
+                                                          SDDC_TYPE_MESSAGE,
+                                                          SDDC_FLAG_ACK,
+                                                          SDDC_SEC_FLAG_NONE,
+                                                          header->seqno,
+                                                          NULL, 0);
+
+                                /*
+                                 * Send MESSAGE ACK to EdgerOS
+                                 */
+                                sendto(sddc->fd, sddc->send_buf, len, 0,
+                                       (const struct sockaddr *)&cli_addr, sizeof(cli_addr));
                             }
                         }
                     } else {                                            /* Payload length error */

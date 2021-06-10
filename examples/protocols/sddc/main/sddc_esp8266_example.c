@@ -219,7 +219,6 @@ static void on_got_ip(void *arg, esp_event_base_t event_base,
 static void initialise_wifi(void)
 {
     tcpip_adapter_init();
-    wifi_event_group = xEventGroupCreate();
     ESP_ERROR_CHECK( esp_wifi_stop() );
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
@@ -313,9 +312,9 @@ static void flash_key_task(void *arg)
             i = 0;
             sddc_printf("Start SmartConfig....\n");
             if (!smartconfig_flag) {
+                smartconfig_flag = 1;
                 initialise_wifi();
                 xTaskCreate(smartconfig_task, "smartconfig_task", 2048, NULL, 10, NULL);
-                smartconfig_flag = 1;
             }
         }
     }
@@ -405,8 +404,9 @@ void app_main()
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    xTaskCreate(flash_key_task, "flash_key_task", 4096, NULL, 5, NULL);
     ESP_ERROR_CHECK(example_connect());
 
+    wifi_event_group = xEventGroupCreate();
+    xTaskCreate(flash_key_task,    "flash_key_task",    4096, NULL, 5, NULL);
     xTaskCreate(sddc_example_task, "sddc_example_task", 4096, NULL, 5, NULL);
 }
