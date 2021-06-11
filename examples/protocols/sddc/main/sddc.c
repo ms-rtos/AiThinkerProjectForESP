@@ -232,7 +232,6 @@ static int __sddc_decrypt(sddc_t *sddc, const void *data, size_t len, void *outp
     sddc_return_value_if_fail(ret == 0, -1);
 
     ret = mbedtls_cipher_finish(&sddc->decypt_cipher_ctx, (uint8_t *)output + ulen, &flen);
-
     sddc_return_value_if_fail(ret == 0, -1);
 
     mbedtls_cipher_free(&sddc->decypt_cipher_ctx);
@@ -1267,7 +1266,8 @@ sddc_connector_t *sddc_connector_create(sddc_t *sddc, const uint8_t *uid, uint16
 
         mbedtls_cipher_set_iv(&connector->cipher_ctx, connector->iv, sizeof(connector->iv));
 
-        mbedtls_cipher_setkey(&connector->cipher_ctx, connector->key, sizeof(connector->key) * 8, MBEDTLS_ENCRYPT);
+        mbedtls_cipher_setkey(&connector->cipher_ctx, connector->key, sizeof(connector->key) * 8,
+                              get_mode ? MBEDTLS_DECRYPT : MBEDTLS_ENCRYPT);
     } else {
         connector->security_en = SDDC_FALSE;
     }
@@ -1321,6 +1321,20 @@ int sddc_connector_fd(sddc_connector_t *connector)
 }
 
 /**
+ * @brief Get transfer mode of SDDC connector.
+ *
+ * @param[in] connector     Pointer to SDDC connector
+ *
+ * @return The transfer mode(0: put mode, 1: get mode), -1 if failure.
+ */
+int sddc_connector_mode(sddc_connector_t *connector)
+{
+    sddc_return_value_if_fail(connector && (connector->sockfd >= 0), -1);
+
+    return connector->get_mode;
+}
+
+/**
  * @brief Put data to SDDC connector.
  *
  * @param[in] connector     Pointer to SDDC connector
@@ -1338,7 +1352,7 @@ int sddc_connector_put(sddc_connector_t *connector, const void *data, size_t len
 
     sddc_return_value_if_fail(connector && (connector->sockfd >= 0) && !connector->get_mode, -1);
     sddc_return_value_if_fail((!data && !len) || (data && len), -1);
-    sddc_return_value_if_fail(len <= (SDDC_CFG_SEND_BUF_SIZE - 16), -1);
+    sddc_return_value_if_fail(len <= (SDDC_CFG_SEND_BUF_SIZE - sizeof(sddc_header_t) - 16), -1);
 
 #if SDDC_CFG_SECURITY_EN > 0
     if (connector->security_en) {
@@ -1359,8 +1373,10 @@ __finish:
         put_len  = len;
     }
 
-    ret = send(connector->sockfd, put_data, put_len, 0);
-    sddc_return_value_if_fail(ret == put_len, -1);
+    if (put_data && put_len) {
+        ret = send(connector->sockfd, put_data, put_len, 0);
+        sddc_return_value_if_fail(ret == put_len, -1);
+    }
 
 #if SDDC_CFG_SECURITY_EN > 0
     if (connector->security_en && finish && data) {

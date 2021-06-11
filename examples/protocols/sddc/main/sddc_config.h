@@ -20,8 +20,8 @@
 #define SDDC_CFG_NET_IMPL               "ms_esp_at_net"
 
 #define SDDC_CFG_MQUEUE_SIZE            6U
-#define SDDC_CFG_RETRIES_INTERVAL       500U /* MS */
-#define SDDC_CFG_EDGEROS_ALIVE          40U  /* RETRIES_INTERVAL */
+#define SDDC_CFG_RETRIES_INTERVAL       500U  /* MS */
+#define SDDC_CFG_EDGEROS_ALIVE          40U   /* RETRIES_INTERVAL */
 #define SDDC_CFG_CONNECTOR_TIMEOUT      5000U /* MS */
 
 #define SDDC_CFG_DBG_EN                 1U

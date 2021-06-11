@@ -37,22 +37,26 @@ static EventGroupHandle_t wifi_event_group;
 static const int CONNECTED_BIT = BIT0;
 static const int ESPTOUCH_DONE_BIT = BIT1;
 static const char *TAG = "sc";
-static int smartconfig_flag = 0;
 
 /*
  * handle MESSAGE
  */
-static sddc_bool_t esp8266_on_message(sddc_t *sddc, const uint8_t *uid, const char *message, size_t len)
+static sddc_bool_t esp_on_message(sddc_t *sddc, const uint8_t *uid, const char *message, size_t len)
 {
     cJSON *root = cJSON_Parse(message);
+    sddc_return_value_if_fail(root, SDDC_TRUE);
 
     /*
      * Parse here
      */
 
     char *str = cJSON_Print(root);
-    sddc_printf("esp8266_on_message: %s\n", str);
+    sddc_goto_error_if_fail(str);
+
+    sddc_printf("esp_on_message: %s\n", str);
     cJSON_free(str);
+
+error:
     cJSON_Delete(root);
 
     return SDDC_TRUE;
@@ -61,80 +65,88 @@ static sddc_bool_t esp8266_on_message(sddc_t *sddc, const uint8_t *uid, const ch
 /*
  * handle MESSAGE ACK
  */
-static void esp8266_on_message_ack(sddc_t *sddc, const uint8_t *uid, uint16_t seqno)
+static void esp_on_message_ack(sddc_t *sddc, const uint8_t *uid, uint16_t seqno)
 {
 }
 
 /*
  * handle MESSAGE lost
  */
-static void esp8266_on_message_lost(sddc_t *sddc, const uint8_t *uid, uint16_t seqno)
+static void esp_on_message_lost(sddc_t *sddc, const uint8_t *uid, uint16_t seqno)
 {
 }
 
 /*
  * handle EdgerOS lost
  */
-static void esp8266_on_edgeros_lost(sddc_t *sddc, const uint8_t *uid)
+static void esp_on_edgeros_lost(sddc_t *sddc, const uint8_t *uid)
 {
 }
 
 /*
  * handle UPDATE
  */
-static sddc_bool_t esp8266_on_update(sddc_t *sddc, const uint8_t *uid, const char *udpate_data, size_t len)
+static sddc_bool_t esp_on_update(sddc_t *sddc, const uint8_t *uid, const char *udpate_data, size_t len)
 {
     cJSON *root = cJSON_Parse(udpate_data);
+    char *str;
 
-    if (root) {
-        /*
-         * Parse here
-         */
+    sddc_return_value_if_fail(root, SDDC_FALSE);
 
-        char *str = cJSON_Print(root);
+    /*
+     * Parse here
+     */
 
-        sddc_printf("esp8266_on_update: %s\n", str);
+    str = cJSON_Print(root);
+    sddc_goto_error_if_fail(str);
 
-        cJSON_free(str);
+    sddc_printf("esp_on_update: %s\n", str);
+    cJSON_free(str);
 
-        cJSON_Delete(root);
+    cJSON_Delete(root);
 
-        return SDDC_TRUE;
-    } else {
-        return SDDC_FALSE;
-    }
+    return SDDC_TRUE;
+
+error:
+    cJSON_Delete(root);
+
+    return SDDC_FALSE;
 }
 
 /*
  * handle INVITE
  */
-static sddc_bool_t esp8266_on_invite(sddc_t *sddc, const uint8_t *uid, const char *invite_data, size_t len)
+static sddc_bool_t esp_on_invite(sddc_t *sddc, const uint8_t *uid, const char *invite_data, size_t len)
 {
     cJSON *root = cJSON_Parse(invite_data);
+    char *str;
 
-    if (root) {
-        /*
-         * Parse here
-         */
+    sddc_return_value_if_fail(root, SDDC_FALSE);
 
-        char *str = cJSON_Print(root);
+    /*
+     * Parse here
+     */
 
-        sddc_printf("esp8266_on_invite: %s\n", str);
+    str = cJSON_Print(root);
+    sddc_goto_error_if_fail(str);
 
-        cJSON_free(str);
+    sddc_printf("esp_on_invite: %s\n", str);
+    cJSON_free(str);
 
-        cJSON_Delete(root);
+    cJSON_Delete(root);
 
-        return SDDC_TRUE;
-    } else {
-        return SDDC_FALSE;
-    }
+    return SDDC_TRUE;
+
+error:
+    cJSON_Delete(root);
+
+    return SDDC_FALSE;
 }
 
 /*
  * handle the end of INVITE
  */
-static sddc_bool_t esp8266_on_invite_end(sddc_t *sddc, const uint8_t *uid)
+static sddc_bool_t esp_on_invite_end(sddc_t *sddc, const uint8_t *uid)
 {
     return SDDC_TRUE;
 }
@@ -142,27 +154,35 @@ static sddc_bool_t esp8266_on_invite_end(sddc_t *sddc, const uint8_t *uid)
 /*
  * Create REPORT data
  */
-static char *esp8266_report_data_create(void)
+static char *esp_report_data_create(void)
 {
     cJSON *root;
     cJSON *report;
     char *str;
 
     root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, "report", report = cJSON_CreateObject());
-        cJSON_AddStringToObject(report, "name",   "IoT Pi");
-        cJSON_AddStringToObject(report, "type",   "device");
-        cJSON_AddBoolToObject(report,   "excl",   SDDC_FALSE);
-        cJSON_AddStringToObject(report, "desc",   "IoT Pi");
-        cJSON_AddStringToObject(report, "model",  "1");
-        cJSON_AddStringToObject(report, "vendor", "ACOINFO");
+    sddc_return_value_if_fail(root, NULL);
+
+    report = cJSON_CreateObject();
+    sddc_return_value_if_fail(report, NULL);
+
+    cJSON_AddItemToObject(root, "report", report);
+    cJSON_AddStringToObject(report, "name",   "IoT Pi");
+    cJSON_AddStringToObject(report, "type",   "device");
+    cJSON_AddBoolToObject(report,   "excl",   SDDC_FALSE);
+    cJSON_AddStringToObject(report, "desc",   "翼辉 IoT Pi");
+    cJSON_AddStringToObject(report, "model",  "1");
+    cJSON_AddStringToObject(report, "vendor", "ACOINFO");
 
     /*
      * Add extension here
      */
 
     str = cJSON_Print(root);
+    sddc_return_value_if_fail(str, NULL);
+
     sddc_printf("REPORT DATA: %s\n", str);
+
     cJSON_Delete(root);
 
     return str;
@@ -171,26 +191,33 @@ static char *esp8266_report_data_create(void)
 /*
  * Create INVITE data
  */
-static char *esp8266_invite_data_create(void)
+static char *esp_invite_data_create(void)
 {
     cJSON *root;
     cJSON *report;
     char *str;
 
     root = cJSON_CreateObject();
-    cJSON_AddItemToObject(root, "report", report = cJSON_CreateObject());
-        cJSON_AddStringToObject(report, "name",   "IoT Pi");
-        cJSON_AddStringToObject(report, "type",   "device");
-        cJSON_AddBoolToObject(report,   "excl",   SDDC_FALSE);
-        cJSON_AddStringToObject(report, "desc",   "IoT Pi");
-        cJSON_AddStringToObject(report, "model",  "1");
-        cJSON_AddStringToObject(report, "vendor", "ACOINFO");
+    sddc_return_value_if_fail(root, NULL);
+
+    report = cJSON_CreateObject();
+    sddc_return_value_if_fail(report, NULL);
+
+    cJSON_AddItemToObject(root, "report", report);
+    cJSON_AddStringToObject(report, "name",   "IoT Pi");
+    cJSON_AddStringToObject(report, "type",   "device");
+    cJSON_AddBoolToObject(report,   "excl",   SDDC_FALSE);
+    cJSON_AddStringToObject(report, "desc",   "翼辉 IoT Pi");
+    cJSON_AddStringToObject(report, "model",  "1");
+    cJSON_AddStringToObject(report, "vendor", "ACOINFO");
 
     /*
      * Add extension here
      */
 
     str = cJSON_Print(root);
+    sddc_return_value_if_fail(str, NULL);
+
     sddc_printf("INVITE DATA: %s\n", str);
 
     cJSON_Delete(root);
@@ -214,22 +241,6 @@ static void on_got_ip(void *arg, esp_event_base_t event_base,
                       int32_t event_id, void *event_data)
 {
     xEventGroupSetBits(wifi_event_group, CONNECTED_BIT);
-}
-
-static void initialise_wifi(void)
-{
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK( esp_wifi_stop() );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-
-    ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_got_ip, NULL));
-
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-    ESP_ERROR_CHECK( esp_wifi_connect() );
 }
 
 static void sc_callback(smartconfig_status_t status, void *pdata)
@@ -277,45 +288,47 @@ static void sc_callback(smartconfig_status_t status, void *pdata)
     }
 }
 
-static void smartconfig_task(void * parm)
-{
-    EventBits_t uxBits;
-    ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
-    ESP_ERROR_CHECK( esp_smartconfig_start(sc_callback) );
-    while (1) {
-        uxBits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT, true, false, portMAX_DELAY);
-        if(uxBits & CONNECTED_BIT) {
-            ESP_LOGI(TAG, "Wi-Fi Connected to AP");
-        }
-        if(uxBits & ESPTOUCH_DONE_BIT) {
-            ESP_LOGI(TAG, "SmartConfig over");
-            esp_smartconfig_stop();
-            smartconfig_flag = 0;
-            vTaskDelete(NULL);
-        }
-    }
-}
-
 static void flash_key_task(void *arg)
 {
     int i = 0;
 
-    smartconfig_flag = 0;
     while (1) {
         vTaskDelay(1000 / portTICK_RATE_MS);
         if (!gpio_get_level(0)) {
             i++;
+            if (i > 3) {
+                i = 0;
+
+                sddc_printf("Start SmartConfig....\n");
+
+                esp_wifi_disconnect();
+                xEventGroupClearBits(wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT);
+
+                ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect, NULL));
+                ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_got_ip, NULL));
+
+                ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
+
+                ESP_ERROR_CHECK( esp_smartconfig_start(sc_callback) );
+
+                while (1) {
+                    EventBits_t uxBits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT,
+                    										 true, false, portMAX_DELAY);
+                    if (uxBits & CONNECTED_BIT) {
+                        ESP_LOGI(TAG, "Wi-Fi Connected to AP");
+                    }
+                    if (uxBits & ESPTOUCH_DONE_BIT) {
+                        ESP_LOGI(TAG, "SmartConfig over");
+                        esp_smartconfig_stop();
+                        break;
+                    }
+                }
+
+                ESP_ERROR_CHECK(esp_event_handler_unregister(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect));
+                ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_got_ip));
+            }
         } else {
             i = 0;
-        }
-        if (i > 3) {
-            i = 0;
-            sddc_printf("Start SmartConfig....\n");
-            if (!smartconfig_flag) {
-                smartconfig_flag = 1;
-                initialise_wifi();
-                xTaskCreate(smartconfig_task, "smartconfig_task", 2048, NULL, 10, NULL);
-            }
         }
     }
 }
@@ -336,13 +349,13 @@ static void sddc_example_task(void *arg)
     /*
      * Set call backs
      */
-    sddc_set_on_message(sddc, esp8266_on_message);
-    sddc_set_on_message_ack(sddc, esp8266_on_message_ack);
-    sddc_set_on_message_lost(sddc, esp8266_on_message_lost);
-    sddc_set_on_invite(sddc, esp8266_on_invite);
-    sddc_set_on_invite_end(sddc, esp8266_on_invite_end);
-    sddc_set_on_update(sddc, esp8266_on_update);
-    sddc_set_on_edgeros_lost(sddc, esp8266_on_edgeros_lost);
+    sddc_set_on_message(sddc, esp_on_message);
+    sddc_set_on_message_ack(sddc, esp_on_message_ack);
+    sddc_set_on_message_lost(sddc, esp_on_message_lost);
+    sddc_set_on_invite(sddc, esp_on_invite);
+    sddc_set_on_invite_end(sddc, esp_on_invite_end);
+    sddc_set_on_update(sddc, esp_on_update);
+    sddc_set_on_edgeros_lost(sddc, esp_on_edgeros_lost);
 
     /*
      * Set token
@@ -354,13 +367,13 @@ static void sddc_example_task(void *arg)
     /*
      * Set report data
      */
-    data = esp8266_report_data_create();
+    data = esp_report_data_create();
     sddc_set_report_data(sddc, data, strlen(data));
 
     /*
      * Set invite data
      */
-    data = esp8266_invite_data_create();
+    data = esp_invite_data_create();
     sddc_set_invite_data(sddc, data, strlen(data));
 
     /*
@@ -397,13 +410,20 @@ static void sddc_example_task(void *arg)
      * Destroy SDDC
      */
     sddc_destroy(sddc);
+
+    vTaskDelete(NULL);
 }
 
-void app_main()
+void app_main(void)
 {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    /* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
+     * Read "Establishing Wi-Fi or Ethernet Connection" section in
+     * examples/protocols/README.md for more information about this function.
+     */
     ESP_ERROR_CHECK(example_connect());
 
     wifi_event_group = xEventGroupCreate();
