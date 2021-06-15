@@ -36,7 +36,15 @@
 static EventGroupHandle_t wifi_event_group;
 static const int CONNECTED_BIT = BIT0;
 static const int ESPTOUCH_DONE_BIT = BIT1;
-static const char *TAG = "sc";
+static const char *TAG = "sddc";
+
+#define GPIO_INPUT_IO_SMARTCOFNIG     0 
+
+#define ESP_KEY_TASK_STACK_SIZE       4096
+#define ESP_KEY_TASK_PRIO             25
+
+#define ESP_SDDC_TASK_STACK_SIZE      4096
+#define ESP_SDDC_TASK_PRIO            10
 
 /*
  * handle MESSAGE
@@ -288,13 +296,28 @@ static void sc_callback(smartconfig_status_t status, void *pdata)
     }
 }
 
-static void flash_key_task(void *arg)
+/*
+ * flash key task
+ */
+static void esp_flash_key_task(void *arg)
 {
+    sddc_t *sddc = arg;
+    gpio_config_t io_conf;
     int i = 0;
+    
+    (void)sddc;
+
+    io_conf.intr_type = GPIO_INTR_DISABLE;
+    io_conf.mode = GPIO_MODE_INPUT;
+    io_conf.pin_bit_mask = 1ULL << GPIO_INPUT_IO_SMARTCOFNIG;
+    io_conf.pull_down_en = 0;
+    io_conf.pull_up_en = 1;
+    gpio_config(&io_conf);
 
     while (1) {
         vTaskDelay(1000 / portTICK_RATE_MS);
-        if (!gpio_get_level(0)) {
+
+        if (!gpio_get_level(GPIO_INPUT_IO_SMARTCOFNIG)) {
             i++;
             if (i > 3) {
                 i = 0;
@@ -313,7 +336,7 @@ static void flash_key_task(void *arg)
 
                 while (1) {
                     EventBits_t uxBits = xEventGroupWaitBits(wifi_event_group, CONNECTED_BIT | ESPTOUCH_DONE_BIT,
-                    										 true, false, portMAX_DELAY);
+                                                             true, false, portMAX_DELAY);
                     if (uxBits & CONNECTED_BIT) {
                         ESP_LOGI(TAG, "Wi-Fi Connected to AP");
                     }
@@ -333,7 +356,10 @@ static void flash_key_task(void *arg)
     }
 }
 
-static void sddc_example_task(void *arg)
+/*
+ * sddc protocol task
+ */
+static void esp_sddc_task(void *arg)
 {
     sddc_t *sddc;
     char *data;
@@ -395,6 +421,10 @@ static void sddc_example_task(void *arg)
 
     sddc_printf("IP addr: %s\n", ip);
 
+    wifi_event_group = xEventGroupCreate();
+
+    xTaskCreate(esp_flash_key_task, "flash_key_task",  ESP_KEY_TASK_STACK_SIZE, sddc, ESP_KEY_TASK_PRIO, NULL);
+
     /*
      * SDDC run
      */
@@ -426,7 +456,5 @@ void app_main(void)
      */
     ESP_ERROR_CHECK(example_connect());
 
-    wifi_event_group = xEventGroupCreate();
-    xTaskCreate(flash_key_task,    "flash_key_task",    4096, NULL, 5, NULL);
-    xTaskCreate(sddc_example_task, "sddc_example_task", 4096, NULL, 5, NULL);
+    xTaskCreate(esp_sddc_task, "sddc_task", ESP_SDDC_TASK_STACK_SIZE, NULL, ESP_SDDC_TASK_PRIO, NULL);
 }
