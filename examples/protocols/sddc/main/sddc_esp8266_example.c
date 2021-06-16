@@ -315,11 +315,11 @@ static void esp_flash_key_task(void *arg)
     gpio_config(&io_conf);
 
     while (1) {
-        vTaskDelay(1000 / portTICK_RATE_MS);
+        vTaskDelay(50 / portTICK_RATE_MS);
 
         if (!gpio_get_level(GPIO_INPUT_IO_SMARTCOFNIG)) {
             i++;
-            if (i > 3) {
+            if (i > (3 * 20)) {
                 i = 0;
 
                 sddc_printf("Start SmartConfig....\n");
