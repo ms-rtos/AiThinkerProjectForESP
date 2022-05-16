@@ -46,6 +46,10 @@ static const char *TAG = "sddc";
 #define ESP_SDDC_TASK_STACK_SIZE      4096
 #define ESP_SDDC_TASK_PRIO            10
 
+#define ESP_TIME_TASK_STACK_SIZE      4096
+#define ESP_TIME_TASK_PRIO            25
+#define ESP_TIME_TASK_EN              0
+
 /*
  * handle MESSAGE
  */
@@ -90,6 +94,42 @@ static void esp_on_message_lost(sddc_t *sddc, const uint8_t *uid, uint16_t seqno
 static void esp_on_edgeros_lost(sddc_t *sddc, const uint8_t *uid)
 {
 }
+
+#if ESP_TIME_TASK_EN > 0
+/*
+ * Handle TIMESTAMP ack
+ */
+static void esp_on_timestamp(sddc_t *sddc, const uint8_t *uid, const char *message, size_t len)
+{
+    cJSON *root = cJSON_Parse(message);
+    cJSON *timestamp, *utc, *tz;
+    char *str;
+
+    sddc_return_if_fail(root);
+
+    str = cJSON_Print(root);
+    sddc_goto_error_if_fail(str);
+
+    sddc_printf("esp_on_timestamp: %s\n", str);
+    cJSON_free(str);
+
+    timestamp = cJSON_GetObjectItem(root, "timestamp");
+    if (cJSON_IsObject(timestamp)) {
+        utc = cJSON_GetObjectItem(timestamp, "utc");
+        if (cJSON_IsNumber(utc)) {
+
+        }
+
+        tz = cJSON_GetObjectItem(timestamp, "tz");
+        if (cJSON_IsNumber(tz)) {
+
+        }
+    }
+
+error:
+    cJSON_Delete(root);
+}
+#endif
 
 /*
  * handle UPDATE
@@ -356,6 +396,22 @@ static void esp_flash_key_task(void *arg)
     }
 }
 
+#if ESP_TIME_TASK_EN > 0
+/*
+ * time task
+ */
+static void esp_time_task(void *arg)
+{
+    sddc_t *sddc = arg;
+
+	while (1) {
+        vTaskDelay(5000 / portTICK_RATE_MS);
+
+    	sddc_send_timestamp_request(sddc, NULL);
+	}
+}
+#endif
+
 /*
  * sddc protocol task
  */
@@ -382,6 +438,9 @@ static void esp_sddc_task(void *arg)
     sddc_set_on_invite_end(sddc, esp_on_invite_end);
     sddc_set_on_update(sddc, esp_on_update);
     sddc_set_on_edgeros_lost(sddc, esp_on_edgeros_lost);
+#if ESP_TIME_TASK_EN > 0
+    sddc_set_on_timestamp(sddc, esp_on_timestamp);
+#endif
 
     /*
      * Set token
@@ -424,6 +483,10 @@ static void esp_sddc_task(void *arg)
     wifi_event_group = xEventGroupCreate();
 
     xTaskCreate(esp_flash_key_task, "flash_key_task",  ESP_KEY_TASK_STACK_SIZE, sddc, ESP_KEY_TASK_PRIO, NULL);
+
+#if ESP_TIME_TASK_EN > 0
+    xTaskCreate(esp_time_task, "time_task",  ESP_TIME_TASK_STACK_SIZE, sddc, ESP_TIME_TASK_PRIO, NULL);
+#endif
 
     /*
      * SDDC run
